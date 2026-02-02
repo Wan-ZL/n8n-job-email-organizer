@@ -1,6 +1,66 @@
 {
-  "name": "AI Job Email Organizer (GPT-5.2)",
+  "name": "AI Job Email Organizer - Auto-categorize job emails to Google Sheets",
   "nodes": [
+    {
+      "parameters": {
+        "content": "## AI Job Email Organizer\n\nThis workflow automatically:\n1. Monitors Gmail for new emails\n2. Uses GPT to classify JOB vs OTHER\n3. Analyzes job emails for company, status, role\n4. Routes to appropriate Google Sheets tab\n5. Marks emails as read\n\n**Tabs Created:**\n- New Jobs (job alerts)\n- Applied Jobs (confirmations)\n- Rejected Jobs\n- Action Jobs (interviews, offers)\n- Other (non-job emails)",
+        "height": 340,
+        "width": 320,
+        "color": 4
+      },
+      "name": "Sticky Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-1220, -120]
+    },
+    {
+      "parameters": {
+        "content": "## Setup Required\n\n1. **Gmail OAuth** - Connect your Gmail account\n2. **OpenAI API** - Add your API key\n3. **Google Sheets OAuth** - Connect Sheets account\n4. **Create Sheet** with tabs:\n   - New Jobs\n   - Applied Jobs\n   - Rejected Jobs\n   - Action Jobs\n   - Other\n5. **Update Sheet ID** in all Save nodes",
+        "height": 280,
+        "width": 280,
+        "color": 6
+      },
+      "name": "Sticky Note - Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-900, -120]
+    },
+    {
+      "parameters": {
+        "content": "## Classification Stage\n\nGPT classifies emails as:\n- **JOB** → job alerts, applications, interviews, rejections, offers, recruiter outreach\n- **OTHER** → newsletters, promotions, personal\n\nHandles forwarded emails by looking at original content.",
+        "height": 180,
+        "width": 340,
+        "color": 3
+      },
+      "name": "Sticky Note - Classification",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-920, 320]
+    },
+    {
+      "parameters": {
+        "content": "## Job Analysis\n\nFor job emails, GPT extracts:\n- Company name\n- Role/title\n- Status (New Post/Applied/Interview/Rejected/Offer)\n- Next step recommendation\n- Match score 1-10\n- Summary & reasoning",
+        "height": 180,
+        "width": 280,
+        "color": 3
+      },
+      "name": "Sticky Note - Job Analysis",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-20, -180]
+    },
+    {
+      "parameters": {
+        "content": "## Customization Tips\n\n**Change AI Model:**\nEdit `model` in Prep nodes\n- gpt-4o (default)\n- gpt-4o-mini (cheaper)\n\n**Remove Other tab:**\nDelete Format Other & Save Other nodes\n\n**Change target role:**\nEdit prompt in Prep Job node",
+        "height": 220,
+        "width": 260,
+        "color": 5
+      },
+      "name": "Sticky Note - Customization",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [820, -320]
+    },
     {
       "parameters": {
         "pollTimes": {"item": [{"mode": "everyMinute"}]},
@@ -11,8 +71,8 @@
       "name": "Gmail Trigger",
       "type": "n8n-nodes-base.gmailTrigger",
       "typeVersion": 1.2,
-      "position": [-1184, 208],
-      "credentials": {"gmailOAuth2": {"id": "", "name": "Your Gmail Account"}}
+      "position": [-860, 208],
+      "credentials": {"gmailOAuth2": {"id": "", "name": ""}}
     },
     {
       "parameters": {
@@ -21,7 +81,7 @@
       "name": "Prep Classify",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-896, 208]
+      "position": [-640, 208]
     },
     {
       "parameters": {
@@ -37,8 +97,8 @@
       "name": "Classify Email",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [-688, 208],
-      "credentials": {"openAiApi": {"id": "", "name": "Your OpenAI Account"}}
+      "position": [-420, 208],
+      "credentials": {"openAiApi": {"id": "", "name": ""}}
     },
     {
       "parameters": {
@@ -47,7 +107,7 @@
       "name": "Parse Category",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-464, 208]
+      "position": [-200, 208]
     },
     {
       "parameters": {
@@ -58,16 +118,16 @@
       "name": "Route Category",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
-      "position": [-240, 208]
+      "position": [20, 208]
     },
     {
       "parameters": {
-        "jsCode": "const prepData = $('Prep Classify').item.json;\nconst gmail = prepData.originalEmail;\nconst emailFrom = prepData.emailFrom;\nconst emailSubject = prepData.emailSubject;\nconst emailBody = gmail.text || gmail.textPlain || gmail.snippet || '';\n\nreturn [{\n  json: {\n    model: 'gpt-4o',\n    input: [\n      { role: 'system', content: 'You are a job email analyzer. Extract: company name, status (New Post/Applied/Interview/Rejected/Offer/Follow Up), next_step (Apply/Prep/Archive/Follow Up/Review), role title, score 1-10, summary, reason.' },\n      { role: 'user', content: `Analyze:\\nFrom: ${emailFrom}\\nSubject: ${emailSubject}\\nBody: ${emailBody}` }\n    ],\n    text: {\n      format: {\n        type: 'json_schema',\n        name: 'job_analysis',\n        strict: true,\n        schema: {\n          type: 'object',\n          properties: {\n            company: { type: 'string' },\n            status: { type: 'string', enum: ['New Post', 'Applied', 'Interview', 'Rejected', 'Offer', 'Follow Up'] },\n            next_step: { type: 'string', enum: ['Apply', 'Prep', 'Archive', 'Follow Up', 'Review'] },\n            role: { type: 'string' },\n            score: { type: 'integer' },\n            summary: { type: 'string' },\n            reason: { type: 'string' }\n          },\n          required: ['company', 'status', 'next_step', 'role', 'score', 'summary', 'reason'],\n          additionalProperties: false\n        }\n      }\n    },\n    originalEmail: gmail\n  }\n}];"
+        "jsCode": "const prepData = $('Prep Classify').item.json;\nconst gmail = prepData.originalEmail;\nconst emailFrom = prepData.emailFrom;\nconst emailSubject = prepData.emailSubject;\nconst emailBody = gmail.text || gmail.textPlain || gmail.snippet || '';\n\nreturn [{\n  json: {\n    model: 'gpt-4o',\n    input: [\n      { role: 'system', content: 'You are a job email analyzer. Extract structured information: company name, status (New Post for job alerts, Applied for application confirmations, Interview for invites, Rejected for rejections, Offer for offers, Follow Up for others), next_step (Apply/Prep/Archive/Follow Up/Review), role title, match score 1-10, one-sentence summary, and reasoning.' },\n      { role: 'user', content: `Analyze this job email:\\n\\nFrom: ${emailFrom}\\nSubject: ${emailSubject}\\nBody: ${emailBody}` }\n    ],\n    text: {\n      format: {\n        type: 'json_schema',\n        name: 'job_analysis',\n        strict: true,\n        schema: {\n          type: 'object',\n          properties: {\n            company: { type: 'string' },\n            status: { type: 'string', enum: ['New Post', 'Applied', 'Interview', 'Rejected', 'Offer', 'Follow Up'] },\n            next_step: { type: 'string', enum: ['Apply', 'Prep', 'Archive', 'Follow Up', 'Review'] },\n            role: { type: 'string' },\n            score: { type: 'integer' },\n            summary: { type: 'string' },\n            reason: { type: 'string' }\n          },\n          required: ['company', 'status', 'next_step', 'role', 'score', 'summary', 'reason'],\n          additionalProperties: false\n        }\n      }\n    },\n    originalEmail: gmail\n  }\n}];"
       },
       "name": "Prep Job",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [0, 0]
+      "position": [240, 80]
     },
     {
       "parameters": {
@@ -83,8 +143,8 @@
       "name": "Analyze Job",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [192, 0],
-      "credentials": {"openAiApi": {"id": "", "name": "Your OpenAI Account"}}
+      "position": [460, 80],
+      "credentials": {"openAiApi": {"id": "", "name": ""}}
     },
     {
       "parameters": {
@@ -93,7 +153,7 @@
       "name": "Format Job",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [400, 0]
+      "position": [680, 80]
     },
     {
       "parameters": {
@@ -104,7 +164,7 @@
       "name": "Route Job Status",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
-      "position": [624, 0]
+      "position": [900, 80]
     },
     {
       "parameters": {
@@ -117,8 +177,8 @@
       "name": "Save New Jobs",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [848, -128],
-      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Your Google Sheets Account"}}
+      "position": [1140, -60],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": ""}}
     },
     {
       "parameters": {
@@ -131,8 +191,8 @@
       "name": "Save Applied Jobs",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [848, -16],
-      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Your Google Sheets Account"}}
+      "position": [1140, 60],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": ""}}
     },
     {
       "parameters": {
@@ -145,8 +205,8 @@
       "name": "Save Rejected Jobs",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [848, 80],
-      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Your Google Sheets Account"}}
+      "position": [1140, 180],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": ""}}
     },
     {
       "parameters": {
@@ -159,8 +219,8 @@
       "name": "Save Action Jobs",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [848, 192],
-      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Your Google Sheets Account"}}
+      "position": [1140, 300],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": ""}}
     },
     {
       "parameters": {
@@ -169,7 +229,7 @@
       "name": "Format Other",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [0, 400]
+      "position": [240, 340]
     },
     {
       "parameters": {
@@ -182,8 +242,8 @@
       "name": "Save Other",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [400, 400],
-      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Your Google Sheets Account"}}
+      "position": [460, 340],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": ""}}
     },
     {
       "parameters": {
@@ -193,8 +253,8 @@
       "name": "Mark Read",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [700, 200],
-      "credentials": {"gmailOAuth2": {"id": "", "name": "Your Gmail Account"}}
+      "position": [1380, 208],
+      "credentials": {"gmailOAuth2": {"id": "", "name": ""}}
     }
   ],
   "connections": {
