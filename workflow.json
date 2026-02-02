@@ -1,0 +1,218 @@
+{
+  "name": "AI Job Email Organizer (GPT-5.2)",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {"item": [{"mode": "everyMinute"}]},
+        "simple": false,
+        "filters": {},
+        "options": {}
+      },
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [-1184, 208],
+      "credentials": {"gmailOAuth2": {"id": "", "name": "Your Gmail Account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.item.json;\nconst emailFrom = email.from?.text || email.From || 'Unknown';\nconst emailSubject = email.subject || email.Subject || 'No Subject';\nconst emailBody = email.text || email.textPlain || email.snippet || '';\n\nconst systemPrompt = `You are an email classifier for job searching. Categorize emails into exactly one category:\n\nJOB - Any email related to job searching:\n  - Job alerts/postings from LinkedIn, Indeed, Glassdoor, company career pages\n  - Application confirmations (\"Thank you for applying\", \"We received your application\")\n  - Interview invitations or scheduling\n  - Rejections (\"We've decided to move forward with other candidates\")\n  - Offers, negotiations, or onboarding emails\n  - Recruiter outreach (\"We found your profile\", \"Exciting opportunity\")\n\nOTHER - Everything else:\n  - Newsletters, promotions, marketing emails\n  - Personal emails, social notifications\n  - System notifications, receipts\n  - Anything not directly related to job searching\n\nIMPORTANT: For forwarded emails (subject starting with \"Fwd:\"), classify based on the ORIGINAL email content, not the forwarder.`;\n\nreturn [{\n  json: {\n    model: 'gpt-4o',\n    input: [\n      { role: 'system', content: systemPrompt },\n      { role: 'user', content: `Classify this email:\\n\\nFrom: ${emailFrom}\\nSubject: ${emailSubject}\\nBody: ${emailBody}` }\n    ],\n    text: {\n      format: {\n        type: 'json_schema',\n        name: 'email_classification',\n        strict: true,\n        schema: {\n          type: 'object',\n          properties: {\n            category: { type: 'string', enum: ['JOB', 'OTHER'], description: 'The category of the email' }\n          },\n          required: ['category'],\n          additionalProperties: false\n        }\n      }\n    },\n    originalEmail: email,\n    emailFrom: emailFrom,\n    emailSubject: emailSubject\n  }\n}];"
+      },
+      "name": "Prep Classify",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-896, 208]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({model: $json.model, input: $json.input, text: $json.text}) }}",
+        "options": {}
+      },
+      "name": "Classify Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [-688, 208],
+      "credentials": {"openAiApi": {"id": "", "name": "Your OpenAI Account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst messageOutput = response.output.find(o => o.type === 'message');\nif (!messageOutput) throw new Error('No message output found');\nconst result = JSON.parse(messageOutput.content[0].text);\nreturn [{ json: { ...response, category: result.category } }];"
+      },
+      "name": "Parse Category",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-464, 208]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ $json.category === 'JOB' ? 0 : 1 }}"
+      },
+      "name": "Route Category",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [-240, 208]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prepData = $('Prep Classify').item.json;\nconst gmail = prepData.originalEmail;\nconst emailFrom = prepData.emailFrom;\nconst emailSubject = prepData.emailSubject;\nconst emailBody = gmail.text || gmail.textPlain || gmail.snippet || '';\n\nreturn [{\n  json: {\n    model: 'gpt-4o',\n    input: [\n      { role: 'system', content: 'You are a job email analyzer. Extract: company name, status (New Post/Applied/Interview/Rejected/Offer/Follow Up), next_step (Apply/Prep/Archive/Follow Up/Review), role title, score 1-10, summary, reason.' },\n      { role: 'user', content: `Analyze:\\nFrom: ${emailFrom}\\nSubject: ${emailSubject}\\nBody: ${emailBody}` }\n    ],\n    text: {\n      format: {\n        type: 'json_schema',\n        name: 'job_analysis',\n        strict: true,\n        schema: {\n          type: 'object',\n          properties: {\n            company: { type: 'string' },\n            status: { type: 'string', enum: ['New Post', 'Applied', 'Interview', 'Rejected', 'Offer', 'Follow Up'] },\n            next_step: { type: 'string', enum: ['Apply', 'Prep', 'Archive', 'Follow Up', 'Review'] },\n            role: { type: 'string' },\n            score: { type: 'integer' },\n            summary: { type: 'string' },\n            reason: { type: 'string' }\n          },\n          required: ['company', 'status', 'next_step', 'role', 'score', 'summary', 'reason'],\n          additionalProperties: false\n        }\n      }\n    },\n    originalEmail: gmail\n  }\n}];"
+      },
+      "name": "Prep Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({model: $json.model, input: $json.input, text: $json.text}) }}",
+        "options": {}
+      },
+      "name": "Analyze Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [192, 0],
+      "credentials": {"openAiApi": {"id": "", "name": "Your OpenAI Account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const messageOutput = $input.item.json.output.find(o => o.type === 'message');\nconst content = JSON.parse(messageOutput.content[0].text);\nconst prepData = $('Prep Classify').item.json;\nconst gmail = prepData.originalEmail;\n\nreturn [{\n  json: {\n    Company: content.company || 'Unknown',\n    Status: content.status || 'New Post',\n    'Next Step': content.next_step || 'Review',\n    Role: content.role || 'Unknown',\n    Score: content.score || 0,\n    Summary: content.summary || '',\n    Reason: content.reason || '',\n    Timestamp: new Date().toISOString(),\n    '_Subject': prepData.emailSubject,\n    '_From': prepData.emailFrom,\n    '_emailId': gmail.id\n  }\n}];"
+      },
+      "name": "Format Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 4,
+        "output": "={{ {'New Post': 0, 'Applied': 1, 'Rejected': 2}[$json.Status] ?? 3 }}"
+      },
+      "name": "Route Job Status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [624, 0]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {"__rl": true, "value": "YOUR_GOOGLE_SHEET_ID", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "New Jobs", "mode": "name"},
+        "columns": {"mappingMode": "autoMapInputData"},
+        "options": {}
+      },
+      "name": "Save New Jobs",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [848, -128],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Your Google Sheets Account"}}
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {"__rl": true, "value": "YOUR_GOOGLE_SHEET_ID", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Applied Jobs", "mode": "name"},
+        "columns": {"mappingMode": "autoMapInputData"},
+        "options": {}
+      },
+      "name": "Save Applied Jobs",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [848, -16],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Your Google Sheets Account"}}
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {"__rl": true, "value": "YOUR_GOOGLE_SHEET_ID", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Rejected Jobs", "mode": "name"},
+        "columns": {"mappingMode": "autoMapInputData"},
+        "options": {}
+      },
+      "name": "Save Rejected Jobs",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [848, 80],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Your Google Sheets Account"}}
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {"__rl": true, "value": "YOUR_GOOGLE_SHEET_ID", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Action Jobs", "mode": "name"},
+        "columns": {"mappingMode": "autoMapInputData"},
+        "options": {}
+      },
+      "name": "Save Action Jobs",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [848, 192],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Your Google Sheets Account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const prepData = $('Prep Classify').item.json;\nconst gmail = prepData.originalEmail;\nconst emailBody = gmail.text || gmail.textPlain || gmail.snippet || '';\nconst cleanBody = emailBody.replace(/\\s+/g, ' ').trim();\nconst summary = cleanBody.length > 150 ? cleanBody.substring(0, 150) + '...' : cleanBody;\n\nreturn [{\n  json: {\n    Summary: summary,\n    Timestamp: new Date().toISOString(),\n    '_Subject': prepData.emailSubject,\n    '_From': prepData.emailFrom,\n    '_emailId': gmail.id\n  }\n}];"
+      },
+      "name": "Format Other",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [0, 400]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {"__rl": true, "value": "YOUR_GOOGLE_SHEET_ID", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Other", "mode": "name"},
+        "columns": {"mappingMode": "autoMapInputData"},
+        "options": {}
+      },
+      "name": "Save Other",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [400, 400],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Your Google Sheets Account"}}
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $json._emailId }}"
+      },
+      "name": "Mark Read",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [700, 200],
+      "credentials": {"gmailOAuth2": {"id": "", "name": "Your Gmail Account"}}
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {"main": [[{"node": "Prep Classify", "type": "main", "index": 0}]]},
+    "Prep Classify": {"main": [[{"node": "Classify Email", "type": "main", "index": 0}]]},
+    "Classify Email": {"main": [[{"node": "Parse Category", "type": "main", "index": 0}]]},
+    "Parse Category": {"main": [[{"node": "Route Category", "type": "main", "index": 0}]]},
+    "Route Category": {"main": [[{"node": "Prep Job", "type": "main", "index": 0}], [{"node": "Format Other", "type": "main", "index": 0}]]},
+    "Prep Job": {"main": [[{"node": "Analyze Job", "type": "main", "index": 0}]]},
+    "Analyze Job": {"main": [[{"node": "Format Job", "type": "main", "index": 0}]]},
+    "Format Job": {"main": [[{"node": "Route Job Status", "type": "main", "index": 0}]]},
+    "Route Job Status": {"main": [[{"node": "Save New Jobs", "type": "main", "index": 0}], [{"node": "Save Applied Jobs", "type": "main", "index": 0}], [{"node": "Save Rejected Jobs", "type": "main", "index": 0}], [{"node": "Save Action Jobs", "type": "main", "index": 0}]]},
+    "Save New Jobs": {"main": [[{"node": "Mark Read", "type": "main", "index": 0}]]},
+    "Save Applied Jobs": {"main": [[{"node": "Mark Read", "type": "main", "index": 0}]]},
+    "Save Rejected Jobs": {"main": [[{"node": "Mark Read", "type": "main", "index": 0}]]},
+    "Save Action Jobs": {"main": [[{"node": "Mark Read", "type": "main", "index": 0}]]},
+    "Format Other": {"main": [[{"node": "Save Other", "type": "main", "index": 0}]]},
+    "Save Other": {"main": [[{"node": "Mark Read", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"}
+}
