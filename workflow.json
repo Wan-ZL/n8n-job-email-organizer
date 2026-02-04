@@ -3,39 +3,87 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## AI Job Email Organizer (GPT-5.2)\n\nThis workflow automatically:\n1. Monitors Gmail for new emails (supports multiple accounts)\n2. Uses GPT-5.2 to classify JOB vs OTHER\n3. Analyzes job emails with enhanced context (sender domain, labels, etc.)\n4. Routes to appropriate Google Sheets tab\n5. Marks emails as read on correct account\n\n**Tabs Created:**\n- New Jobs (job alerts)\n- Applied Jobs (confirmations)\n- Rejected Jobs\n- Action Jobs (interviews, offers, follow-ups)\n- Other (non-job emails)",
-        "height": 380,
-        "width": 340,
+        "content": "## AI Job Email Organizer (GPT-5.2)\n\nI built this workflow to automatically organize my job search emails while applying for ML/AI engineer positions. It monitors multiple Gmail accounts, uses GPT-5.2 to classify and analyze emails, then routes them to organized Google Sheets tabs.\n\n### How it works\n\n1. **Gmail Triggers** poll your inbox every minute for new unread emails\n2. **Prep Classify** extracts email content and detects which account it came from\n3. **Classify Email** calls GPT-5.2 to determine if it's job-related (JOB) or not (OTHER)\n4. **Prep Job** enriches job emails with sender domain, Gmail labels, and reply/forward detection\n5. **Analyze Job** extracts company, role, status, match score (1-10), and recommended next step\n6. **Route Job Status** sends to the correct sheet tab based on status\n7. **Route Account** ensures Mark Read uses the correct Gmail credential\n\n### Setup steps\n\n1. Connect **Gmail OAuth** credentials to both triggers (delete Account 2 if using single account)\n2. Add your **OpenAI API** key with GPT-5.2 access\n3. Connect **Google Sheets OAuth** credentials\n4. Create a Google Sheet with 5 tabs: `New Jobs`, `Applied Jobs`, `Rejected Jobs`, `Action Jobs`, `Other`\n5. Copy your Sheet ID from the URL and update all 5 Save nodes\n6. In **Prep Classify**, update the email patterns to match your Gmail addresses\n7. Activate the workflow and test by forwarding yourself a job email\n\n### Customization\n\n- **Single account**: Delete Gmail Trigger (Account 2), Mark Read (Account 2), and simplify Route Account\n- **Different target role**: Edit the system prompt in Prep Job (currently scores for ML/AI Engineer)\n- **Skip OTHER emails**: Remove Format Other and Save Other nodes",
+        "height": 820,
+        "width": 480,
         "color": 4
       },
-      "name": "Sticky Note - Overview",
+      "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-1420, -120]
+      "position": [-1500, -180]
     },
     {
       "parameters": {
-        "content": "## Setup Required\n\n1. **Gmail OAuth** - Connect your Gmail account(s)\n2. **OpenAI API** - Add your API key (GPT-5.2)\n3. **Google Sheets OAuth** - Connect Sheets account\n4. **Create Sheet** with tabs:\n   - New Jobs\n   - Applied Jobs\n   - Rejected Jobs\n   - Action Jobs\n   - Other\n5. **Update Sheet ID** in all Save nodes\n6. **Update Gmail credentials** in triggers and Mark Read nodes",
-        "height": 320,
-        "width": 300,
-        "color": 6
+        "content": "## 1. Email Triggers\nMonitors both Gmail accounts for new unread emails",
+        "height": 280,
+        "width": 200,
+        "color": 1
       },
-      "name": "Sticky Note - Setup",
+      "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-1080, -120]
+      "position": [-1220, 60]
     },
     {
       "parameters": {
-        "content": "## Enhanced Job Analysis\n\nGPT receives rich context:\n- **Sender Domain** (e.g., anthropic.com)\n- **Gmail Labels** (IMPORTANT, CATEGORY_UPDATES)\n- **Is Reply/Forward** detection\n- **Full Body** (with HTML fallback)\n\nThis helps correctly identify rejections even when subject says \"Follow-Up\".",
-        "height": 200,
-        "width": 320,
-        "color": 3
+        "content": "## 2. Classification\nGPT-5.2 determines JOB vs OTHER",
+        "height": 100,
+        "width": 520,
+        "color": 1
       },
-      "name": "Sticky Note - Enhanced Analysis",
+      "name": "Sticky Note2",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-20, -220]
+      "position": [-940, 160]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Job Analysis\nExtracts company, role, status, score with enhanced context (domain, labels, HTML fallback)",
+        "height": 100,
+        "width": 680,
+        "color": 1
+      },
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, -60]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Save to Sheets\nRoutes to correct tab based on job status",
+        "height": 420,
+        "width": 160,
+        "color": 1
+      },
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [808, -180]
+    },
+    {
+      "parameters": {
+        "content": "## 5. Mark as Read\nUses correct Gmail credential based on email source",
+        "height": 220,
+        "width": 200,
+        "color": 1
+      },
+      "name": "Sticky Note5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1288, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Other Emails\nNon-job emails logged here",
+        "height": 100,
+        "width": 700,
+        "color": 1
+      },
+      "name": "Sticky Note6",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, 750]
     },
     {
       "parameters": {
