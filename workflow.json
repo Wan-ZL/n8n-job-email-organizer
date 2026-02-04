@@ -1,65 +1,41 @@
 {
-  "name": "AI Job Email Organizer - Auto-categorize job emails to Google Sheets",
+  "name": "AI Job Email Organizer (GPT-5.2) - Auto-categorize job emails to Google Sheets",
   "nodes": [
     {
       "parameters": {
-        "content": "## AI Job Email Organizer\n\nThis workflow automatically:\n1. Monitors Gmail for new emails\n2. Uses GPT to classify JOB vs OTHER\n3. Analyzes job emails for company, status, role\n4. Routes to appropriate Google Sheets tab\n5. Marks emails as read\n\n**Tabs Created:**\n- New Jobs (job alerts)\n- Applied Jobs (confirmations)\n- Rejected Jobs\n- Action Jobs (interviews, offers)\n- Other (non-job emails)",
-        "height": 340,
-        "width": 320,
+        "content": "## AI Job Email Organizer (GPT-5.2)\n\nThis workflow automatically:\n1. Monitors Gmail for new emails (supports multiple accounts)\n2. Uses GPT-5.2 to classify JOB vs OTHER\n3. Analyzes job emails with enhanced context (sender domain, labels, etc.)\n4. Routes to appropriate Google Sheets tab\n5. Marks emails as read on correct account\n\n**Tabs Created:**\n- New Jobs (job alerts)\n- Applied Jobs (confirmations)\n- Rejected Jobs\n- Action Jobs (interviews, offers, follow-ups)\n- Other (non-job emails)",
+        "height": 380,
+        "width": 340,
         "color": 4
       },
       "name": "Sticky Note - Overview",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-1220, -120]
+      "position": [-1420, -120]
     },
     {
       "parameters": {
-        "content": "## Setup Required\n\n1. **Gmail OAuth** - Connect your Gmail account\n2. **OpenAI API** - Add your API key\n3. **Google Sheets OAuth** - Connect Sheets account\n4. **Create Sheet** with tabs:\n   - New Jobs\n   - Applied Jobs\n   - Rejected Jobs\n   - Action Jobs\n   - Other\n5. **Update Sheet ID** in all Save nodes",
-        "height": 280,
-        "width": 280,
+        "content": "## Setup Required\n\n1. **Gmail OAuth** - Connect your Gmail account(s)\n2. **OpenAI API** - Add your API key (GPT-5.2)\n3. **Google Sheets OAuth** - Connect Sheets account\n4. **Create Sheet** with tabs:\n   - New Jobs\n   - Applied Jobs\n   - Rejected Jobs\n   - Action Jobs\n   - Other\n5. **Update Sheet ID** in all Save nodes\n6. **Update Gmail credentials** in triggers and Mark Read nodes",
+        "height": 320,
+        "width": 300,
         "color": 6
       },
       "name": "Sticky Note - Setup",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-900, -120]
+      "position": [-1080, -120]
     },
     {
       "parameters": {
-        "content": "## Classification Stage\n\nGPT classifies emails as:\n- **JOB** → job alerts, applications, interviews, rejections, offers, recruiter outreach\n- **OTHER** → newsletters, promotions, personal\n\nHandles forwarded emails by looking at original content.",
-        "height": 180,
-        "width": 340,
+        "content": "## Enhanced Job Analysis\n\nGPT receives rich context:\n- **Sender Domain** (e.g., anthropic.com)\n- **Gmail Labels** (IMPORTANT, CATEGORY_UPDATES)\n- **Is Reply/Forward** detection\n- **Full Body** (with HTML fallback)\n\nThis helps correctly identify rejections even when subject says \"Follow-Up\".",
+        "height": 200,
+        "width": 320,
         "color": 3
       },
-      "name": "Sticky Note - Classification",
+      "name": "Sticky Note - Enhanced Analysis",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-920, 320]
-    },
-    {
-      "parameters": {
-        "content": "## Job Analysis\n\nFor job emails, GPT extracts:\n- Company name\n- Role/title\n- Status (New Post/Applied/Interview/Rejected/Offer)\n- Next step recommendation\n- Match score 1-10\n- Summary & reasoning",
-        "height": 180,
-        "width": 280,
-        "color": 3
-      },
-      "name": "Sticky Note - Job Analysis",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [-20, -180]
-    },
-    {
-      "parameters": {
-        "content": "## Customization Tips\n\n**Change AI Model:**\nEdit `model` in Prep nodes\n- gpt-4o (default)\n- gpt-4o-mini (cheaper)\n\n**Remove Other tab:**\nDelete Format Other & Save Other nodes\n\n**Change target role:**\nEdit prompt in Prep Job node",
-        "height": 220,
-        "width": 260,
-        "color": 5
-      },
-      "name": "Sticky Note - Customization",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [820, -320]
+      "position": [-20, -220]
     },
     {
       "parameters": {
@@ -68,20 +44,36 @@
         "filters": {},
         "options": {}
       },
-      "name": "Gmail Trigger",
+      "id": "gmail-trigger-1",
+      "name": "Gmail Trigger (Account 1)",
       "type": "n8n-nodes-base.gmailTrigger",
       "typeVersion": 1.2,
-      "position": [-860, 208],
-      "credentials": {"gmailOAuth2": {"id": "", "name": ""}}
+      "position": [-1184, 112],
+      "credentials": {"gmailOAuth2": {"id": "", "name": "Gmail account 1"}}
     },
     {
       "parameters": {
-        "jsCode": "const email = $input.item.json;\nconst emailFrom = email.from?.text || email.From || 'Unknown';\nconst emailSubject = email.subject || email.Subject || 'No Subject';\nconst emailBody = email.text || email.textPlain || email.snippet || '';\n\nconst systemPrompt = `You are an email classifier for job searching. Categorize emails into exactly one category:\n\nJOB - Any email related to job searching:\n  - Job alerts/postings from LinkedIn, Indeed, Glassdoor, company career pages\n  - Application confirmations (\"Thank you for applying\", \"We received your application\")\n  - Interview invitations or scheduling\n  - Rejections (\"We've decided to move forward with other candidates\")\n  - Offers, negotiations, or onboarding emails\n  - Recruiter outreach (\"We found your profile\", \"Exciting opportunity\")\n\nOTHER - Everything else:\n  - Newsletters, promotions, marketing emails\n  - Personal emails, social notifications\n  - System notifications, receipts\n  - Anything not directly related to job searching\n\nIMPORTANT: For forwarded emails (subject starting with \"Fwd:\"), classify based on the ORIGINAL email content, not the forwarder.`;\n\nreturn [{\n  json: {\n    model: 'gpt-4o',\n    input: [\n      { role: 'system', content: systemPrompt },\n      { role: 'user', content: `Classify this email:\\n\\nFrom: ${emailFrom}\\nSubject: ${emailSubject}\\nBody: ${emailBody}` }\n    ],\n    text: {\n      format: {\n        type: 'json_schema',\n        name: 'email_classification',\n        strict: true,\n        schema: {\n          type: 'object',\n          properties: {\n            category: { type: 'string', enum: ['JOB', 'OTHER'], description: 'The category of the email' }\n          },\n          required: ['category'],\n          additionalProperties: false\n        }\n      }\n    },\n    originalEmail: email,\n    emailFrom: emailFrom,\n    emailSubject: emailSubject\n  }\n}];"
+        "pollTimes": {"item": [{"mode": "everyMinute"}]},
+        "simple": false,
+        "filters": {},
+        "options": {}
       },
+      "id": "gmail-trigger-2",
+      "name": "Gmail Trigger (Account 2)",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [-1184, 304],
+      "credentials": {"gmailOAuth2": {"id": "", "name": "Gmail account 2"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.item.json;\n\n// Detect email source - multiple methods\nlet emailSource = '';\n\n// Method 1: Try to detect from trigger data\ntry {\n  const trigger1Data = $('Gmail Trigger (Account 1)').first();\n  if (trigger1Data && trigger1Data.json && trigger1Data.json.id === email.id) {\n    emailSource = 'account1';\n  }\n} catch (e) {\n  // Not from trigger 1\n}\n\nif (!emailSource) {\n  try {\n    const trigger2Data = $('Gmail Trigger (Account 2)').first();\n    if (trigger2Data && trigger2Data.json && trigger2Data.json.id === email.id) {\n      emailSource = 'account2';\n    }\n  } catch (e) {\n    // Not from trigger 2\n  }\n}\n\n// Method 2: Fallback to recipient detection\nif (!emailSource) {\n  const toField = (email.to?.text || email.To || '').toLowerCase();\n  const deliveredTo = (email.payload?.headers?.find(h => h.name.toLowerCase() === 'delivered-to')?.value || '').toLowerCase();\n  const allRecipients = toField + ' ' + deliveredTo;\n  \n  // Customize these email patterns for your accounts\n  if (allRecipients.includes('your-email-1')) {\n    emailSource = 'account1';\n  } else if (allRecipients.includes('your-email-2')) {\n    emailSource = 'account2';\n  } else {\n    emailSource = 'account1'; // Default\n  }\n}\n\nconst emailFrom = email.from?.text || email.From || 'Unknown';\nconst emailSubject = email.subject || email.Subject || 'No Subject';\nconst emailBody = email.text || email.textPlain || email.snippet || '';\n\nconst systemPrompt = `You are an email classifier for job searching. Categorize emails into exactly one category:\n\nJOB - Any email related to job searching:\n  - Job alerts/postings from LinkedIn, Indeed, Glassdoor, company career pages\n  - Application confirmations (\"Thank you for applying\", \"We received your application\")\n  - Interview invitations or scheduling\n  - Rejections (\"We've decided to move forward with other candidates\")\n  - Offers, negotiations, or onboarding emails\n  - Recruiter outreach (\"We found your profile\", \"Exciting opportunity\")\n\nOTHER - Everything else:\n  - Newsletters, promotions, marketing emails\n  - Personal emails, social notifications\n  - System notifications, receipts\n  - Anything not directly related to job searching\n\nIMPORTANT: For forwarded emails (subject starting with \"Fwd:\"), classify based on the ORIGINAL email content, not the forwarder.`;\n\nreturn [{\n  json: {\n    model: 'gpt-5.2',\n    input: [\n      { role: 'system', content: systemPrompt },\n      { role: 'user', content: `Classify this email:\\n\\nFrom: ${emailFrom}\\nSubject: ${emailSubject}\\nBody: ${emailBody}` }\n    ],\n    text: {\n      format: {\n        type: 'json_schema',\n        name: 'email_classification',\n        strict: true,\n        schema: {\n          type: 'object',\n          properties: {\n            category: { type: 'string', enum: ['JOB', 'OTHER'], description: 'The category of the email' }\n          },\n          required: ['category'],\n          additionalProperties: false\n        }\n      }\n    },\n    reasoning: { effort: 'medium' },\n    originalEmail: email,\n    emailSource: emailSource,\n    emailFrom: emailFrom,\n    emailSubject: emailSubject\n  }\n}];"
+      },
+      "id": "prep-classify",
       "name": "Prep Classify",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-640, 208]
+      "position": [-896, 208]
     },
     {
       "parameters": {
@@ -91,23 +83,25 @@
         "nodeCredentialType": "openAiApi",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({model: $json.model, input: $json.input, text: $json.text}) }}",
+        "jsonBody": "={{ JSON.stringify({model: $json.model, input: $json.input, text: $json.text, reasoning: $json.reasoning}) }}",
         "options": {}
       },
+      "id": "classify-email",
       "name": "Classify Email",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [-420, 208],
-      "credentials": {"openAiApi": {"id": "", "name": ""}}
+      "position": [-688, 208],
+      "credentials": {"openAiApi": {"id": "", "name": "OpenAI API"}}
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst messageOutput = response.output.find(o => o.type === 'message');\nif (!messageOutput) throw new Error('No message output found');\nconst result = JSON.parse(messageOutput.content[0].text);\nreturn [{ json: { ...response, category: result.category } }];"
+        "jsCode": "const response = $input.first().json;\nconst messageOutput = response.output.find(o => o.type === 'message');\nif (!messageOutput) {\n  throw new Error('No message output found in GPT response');\n}\nconst resultText = messageOutput.content[0].text;\nconst result = JSON.parse(resultText);\nconst category = result.category;\nconst validCategories = ['JOB', 'OTHER'];\nif (!validCategories.includes(category)) {\n  throw new Error(`Invalid category: ${category}`);\n}\nreturn [{\n  json: {\n    ...response,\n    category: category\n  }\n}];"
       },
+      "id": "parse-category",
       "name": "Parse Category",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-200, 208]
+      "position": [-464, 208]
     },
     {
       "parameters": {
@@ -115,19 +109,21 @@
         "numberOutputs": 2,
         "output": "={{ $json.category === 'JOB' ? 0 : 1 }}"
       },
+      "id": "route-category",
       "name": "Route Category",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
-      "position": [20, 208]
+      "position": [-240, 208]
     },
     {
       "parameters": {
-        "jsCode": "const prepData = $('Prep Classify').item.json;\nconst gmail = prepData.originalEmail;\nconst emailFrom = prepData.emailFrom;\nconst emailSubject = prepData.emailSubject;\nconst emailBody = gmail.text || gmail.textPlain || gmail.snippet || '';\n\nreturn [{\n  json: {\n    model: 'gpt-4o',\n    input: [\n      { role: 'system', content: 'You are a job email analyzer. Extract structured information: company name, status (New Post for job alerts, Applied for application confirmations, Interview for invites, Rejected for rejections, Offer for offers, Follow Up for others), next_step (Apply/Prep/Archive/Follow Up/Review), role title, match score 1-10, one-sentence summary, and reasoning.' },\n      { role: 'user', content: `Analyze this job email:\\n\\nFrom: ${emailFrom}\\nSubject: ${emailSubject}\\nBody: ${emailBody}` }\n    ],\n    text: {\n      format: {\n        type: 'json_schema',\n        name: 'job_analysis',\n        strict: true,\n        schema: {\n          type: 'object',\n          properties: {\n            company: { type: 'string' },\n            status: { type: 'string', enum: ['New Post', 'Applied', 'Interview', 'Rejected', 'Offer', 'Follow Up'] },\n            next_step: { type: 'string', enum: ['Apply', 'Prep', 'Archive', 'Follow Up', 'Review'] },\n            role: { type: 'string' },\n            score: { type: 'integer' },\n            summary: { type: 'string' },\n            reason: { type: 'string' }\n          },\n          required: ['company', 'status', 'next_step', 'role', 'score', 'summary', 'reason'],\n          additionalProperties: false\n        }\n      }\n    },\n    originalEmail: gmail\n  }\n}];"
+        "jsCode": "const prepData = $('Prep Classify').item.json;\nconst gmail = prepData.originalEmail;\n\n// Basic info\nconst emailFrom = prepData.emailFrom || gmail.from?.text || gmail.From || 'Unknown';\nconst emailSubject = prepData.emailSubject || gmail.subject || gmail.Subject || 'No Subject';\n\n// Extract sender domain\nconst fromEmail = gmail.from?.value?.[0]?.address || '';\nconst senderDomain = fromEmail.split('@')[1] || 'unknown';\n\n// Extract email body (priority: text > textPlain > html > snippet)\nlet emailBody = gmail.text || gmail.textPlain || '';\nif (!emailBody && gmail.html) {\n  emailBody = gmail.html\n    .replace(/<style[^>]*>.*?<\\/style>/gi, '')\n    .replace(/<script[^>]*>.*?<\\/script>/gi, '')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/&nbsp;/g, ' ')\n    .replace(/&amp;/g, '&')\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>')\n    .replace(/&quot;/g, '\"')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\nif (!emailBody) emailBody = gmail.snippet || '';\n// Limit length to avoid too many tokens\nif (emailBody.length > 2000) {\n  emailBody = emailBody.substring(0, 2000) + '...';\n}\n\n// Gmail labels\nconst labels = (gmail.labelIds || []).join(', ');\n\n// Is reply/forward\nconst isReply = emailSubject.toLowerCase().startsWith('re:');\nconst isForward = emailSubject.toLowerCase().startsWith('fwd:');\n\n// Build enhanced user message\nconst userContent = `Analyze this job email:\n\nFrom: ${emailFrom}\nSender Domain: ${senderDomain}\nSubject: ${emailSubject}\nGmail Labels: ${labels}\nIs Reply: ${isReply}\nIs Forward: ${isForward}\n\nBody:\n${emailBody}`;\n\nreturn [{\n  json: {\n    model: 'gpt-5.2',\n    input: [\n      {\n        role: 'system',\n        content: 'You are a job email analyzer. Extract structured information from job-related emails.\\n\\nDetermine the STATUS based on email content:\\n- New Post: Job alerts, new job postings, recruiter outreach\\n- Applied: Application confirmations (\"Thank you for applying\", \"We received your application\")\\n- Interview: Interview invitations, scheduling, calendar invites\\n- Rejected: Rejections (\"decided not to move forward\", \"will not be proceeding\", \"other candidates\")\\n- Offer: Job offers, salary negotiations, onboarding\\n- Follow Up: Status updates, follow-up requests, other communications\\n\\nIMPORTANT: Pay close attention to the email BODY content, not just the subject line. A subject saying \"Follow-Up\" might actually be a rejection if the body says \"not moving forward\".\\n\\nRecommend the NEXT_STEP:\\n- Apply: For new job postings worth applying to\\n- Prep: For interview invitations (prepare for interview)\\n- Archive: For rejections or irrelevant emails\\n- Follow Up: When action needed from you\\n- Review: For offers or important decisions\\n\\nScore how well this matches an ML/AI Engineer role (1-10).'\n      },\n      {\n        role: 'user',\n        content: userContent\n      }\n    ],\n    text: {\n      format: {\n        type: 'json_schema',\n        name: 'job_analysis',\n        strict: true,\n        schema: {\n          type: 'object',\n          properties: {\n            company: { type: 'string', description: 'Company name' },\n            status: { type: 'string', enum: ['New Post', 'Applied', 'Interview', 'Rejected', 'Offer', 'Follow Up'], description: 'Current status of this job opportunity' },\n            next_step: { type: 'string', enum: ['Apply', 'Prep', 'Archive', 'Follow Up', 'Review'], description: 'Recommended next action' },\n            role: { type: 'string', description: 'Job title' },\n            score: { type: 'integer', description: 'Match score 1-10 for ML/AI Engineer' },\n            summary: { type: 'string', description: 'One sentence summary' },\n            reason: { type: 'string', description: 'Why this score/action' }\n          },\n          required: ['company', 'status', 'next_step', 'role', 'score', 'summary', 'reason'],\n          additionalProperties: false\n        }\n      }\n    },\n    reasoning: { effort: 'medium' },\n    originalEmail: gmail\n  }\n}];"
       },
+      "id": "prep-job",
       "name": "Prep Job",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [240, 80]
+      "position": [0, 0]
     },
     {
       "parameters": {
@@ -137,23 +133,25 @@
         "nodeCredentialType": "openAiApi",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({model: $json.model, input: $json.input, text: $json.text}) }}",
+        "jsonBody": "={{ JSON.stringify({model: $json.model, input: $json.input, text: $json.text, reasoning: $json.reasoning}) }}",
         "options": {}
       },
+      "id": "analyze-job",
       "name": "Analyze Job",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [460, 80],
-      "credentials": {"openAiApi": {"id": "", "name": ""}}
+      "position": [192, 0],
+      "credentials": {"openAiApi": {"id": "", "name": "OpenAI API"}}
     },
     {
       "parameters": {
-        "jsCode": "const messageOutput = $input.item.json.output.find(o => o.type === 'message');\nconst content = JSON.parse(messageOutput.content[0].text);\nconst prepData = $('Prep Classify').item.json;\nconst gmail = prepData.originalEmail;\n\nreturn [{\n  json: {\n    Company: content.company || 'Unknown',\n    Status: content.status || 'New Post',\n    'Next Step': content.next_step || 'Review',\n    Role: content.role || 'Unknown',\n    Score: content.score || 0,\n    Summary: content.summary || '',\n    Reason: content.reason || '',\n    Timestamp: new Date().toISOString(),\n    '_Subject': prepData.emailSubject,\n    '_From': prepData.emailFrom,\n    '_emailId': gmail.id\n  }\n}];"
+        "jsCode": "const messageOutput = $input.item.json.output.find(o => o.type === 'message');\nconst content = JSON.parse(messageOutput.content[0].text);\nconst prepData = $('Prep Classify').item.json;\nconst gmail = prepData.originalEmail;\nconst emailFrom = prepData.emailFrom || gmail.from?.text || gmail.From || 'Unknown';\nconst emailSubject = prepData.emailSubject || gmail.subject || gmail.Subject || 'No Subject';\nconst gmailAccount = prepData.emailSource || 'Unknown';\nconst emailId = gmail.id;\n\nreturn [{\n  json: {\n    Company: content.company || 'Unknown',\n    Status: content.status || 'New Post',\n    'Next Step': content.next_step || 'Review',\n    Role: content.role || 'Unknown',\n    Score: content.score || 0,\n    Summary: content.summary || '',\n    Reason: content.reason || '',\n    Timestamp: new Date().toISOString(),\n    '_Subject': emailSubject,\n    '_From': emailFrom,\n    '_Gmail Account': gmailAccount,\n    '_emailId': emailId,\n    '_emailSource': gmailAccount\n  }\n}];"
       },
+      "id": "format-job",
       "name": "Format Job",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [680, 80]
+      "position": [400, 0]
     },
     {
       "parameters": {
@@ -161,10 +159,11 @@
         "numberOutputs": 4,
         "output": "={{ {'New Post': 0, 'Applied': 1, 'Rejected': 2}[$json.Status] ?? 3 }}"
       },
+      "id": "route-job-status",
       "name": "Route Job Status",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
-      "position": [900, 80]
+      "position": [624, 0]
     },
     {
       "parameters": {
@@ -174,11 +173,12 @@
         "columns": {"mappingMode": "autoMapInputData"},
         "options": {}
       },
+      "id": "save-new-jobs",
       "name": "Save New Jobs",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [1140, -60],
-      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": ""}}
+      "position": [848, -128],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Google Sheets"}}
     },
     {
       "parameters": {
@@ -188,11 +188,12 @@
         "columns": {"mappingMode": "autoMapInputData"},
         "options": {}
       },
+      "id": "save-applied-jobs",
       "name": "Save Applied Jobs",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [1140, 60],
-      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": ""}}
+      "position": [848, -16],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Google Sheets"}}
     },
     {
       "parameters": {
@@ -202,11 +203,12 @@
         "columns": {"mappingMode": "autoMapInputData"},
         "options": {}
       },
+      "id": "save-rejected-jobs",
       "name": "Save Rejected Jobs",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [1140, 180],
-      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": ""}}
+      "position": [848, 80],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Google Sheets"}}
     },
     {
       "parameters": {
@@ -216,20 +218,22 @@
         "columns": {"mappingMode": "autoMapInputData"},
         "options": {}
       },
+      "id": "save-action-jobs",
       "name": "Save Action Jobs",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [1140, 300],
-      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": ""}}
+      "position": [848, 192],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Google Sheets"}}
     },
     {
       "parameters": {
-        "jsCode": "const prepData = $('Prep Classify').item.json;\nconst gmail = prepData.originalEmail;\nconst emailBody = gmail.text || gmail.textPlain || gmail.snippet || '';\nconst cleanBody = emailBody.replace(/\\s+/g, ' ').trim();\nconst summary = cleanBody.length > 150 ? cleanBody.substring(0, 150) + '...' : cleanBody;\n\nreturn [{\n  json: {\n    Summary: summary,\n    Timestamp: new Date().toISOString(),\n    '_Subject': prepData.emailSubject,\n    '_From': prepData.emailFrom,\n    '_emailId': gmail.id\n  }\n}];"
+        "jsCode": "const prepData = $('Prep Classify').item.json;\nconst gmail = prepData.originalEmail;\nconst emailFrom = prepData.emailFrom || gmail.from?.text || gmail.From || 'Unknown';\nconst emailSubject = prepData.emailSubject || gmail.subject || gmail.Subject || 'No Subject';\nconst emailBody = gmail.text || gmail.textPlain || gmail.snippet || '';\nconst gmailAccount = prepData.emailSource || 'Unknown';\nconst emailId = gmail.id;\nconst cleanBody = emailBody.replace(/\\s+/g, ' ').trim();\nconst summary = cleanBody.length > 150 ? cleanBody.substring(0, 150) + '...' : cleanBody;\n\nreturn [{\n  json: {\n    Summary: summary,\n    Timestamp: new Date().toISOString(),\n    '_Subject': emailSubject,\n    '_From': emailFrom,\n    '_Gmail Account': gmailAccount,\n    '_emailId': emailId,\n    '_emailSource': gmailAccount\n  }\n}];"
       },
+      "id": "format-other",
       "name": "Format Other",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [240, 340]
+      "position": [0, 800]
     },
     {
       "parameters": {
@@ -239,26 +243,71 @@
         "columns": {"mappingMode": "autoMapInputData"},
         "options": {}
       },
+      "id": "save-other",
       "name": "Save Other",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [460, 340],
-      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": ""}}
+      "position": [624, 800],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "", "name": "Google Sheets"}}
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "email-source-check",
+              "leftValue": "={{ $json._emailSource }}",
+              "rightValue": "account1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "route-account",
+      "name": "Route Account",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1104, 400]
     },
     {
       "parameters": {
         "operation": "markAsRead",
         "messageId": "={{ $json._emailId }}"
       },
-      "name": "Mark Read",
+      "id": "mark-read-1",
+      "name": "Mark Read (Account 1)",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [1380, 208],
-      "credentials": {"gmailOAuth2": {"id": "", "name": ""}}
+      "position": [1328, 352],
+      "credentials": {"gmailOAuth2": {"id": "", "name": "Gmail account 1"}}
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $json._emailId }}"
+      },
+      "id": "mark-read-2",
+      "name": "Mark Read (Account 2)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1328, 464],
+      "credentials": {"gmailOAuth2": {"id": "", "name": "Gmail account 2"}}
     }
   ],
   "connections": {
-    "Gmail Trigger": {"main": [[{"node": "Prep Classify", "type": "main", "index": 0}]]},
+    "Gmail Trigger (Account 1)": {"main": [[{"node": "Prep Classify", "type": "main", "index": 0}]]},
+    "Gmail Trigger (Account 2)": {"main": [[{"node": "Prep Classify", "type": "main", "index": 0}]]},
     "Prep Classify": {"main": [[{"node": "Classify Email", "type": "main", "index": 0}]]},
     "Classify Email": {"main": [[{"node": "Parse Category", "type": "main", "index": 0}]]},
     "Parse Category": {"main": [[{"node": "Route Category", "type": "main", "index": 0}]]},
@@ -267,12 +316,13 @@
     "Analyze Job": {"main": [[{"node": "Format Job", "type": "main", "index": 0}]]},
     "Format Job": {"main": [[{"node": "Route Job Status", "type": "main", "index": 0}]]},
     "Route Job Status": {"main": [[{"node": "Save New Jobs", "type": "main", "index": 0}], [{"node": "Save Applied Jobs", "type": "main", "index": 0}], [{"node": "Save Rejected Jobs", "type": "main", "index": 0}], [{"node": "Save Action Jobs", "type": "main", "index": 0}]]},
-    "Save New Jobs": {"main": [[{"node": "Mark Read", "type": "main", "index": 0}]]},
-    "Save Applied Jobs": {"main": [[{"node": "Mark Read", "type": "main", "index": 0}]]},
-    "Save Rejected Jobs": {"main": [[{"node": "Mark Read", "type": "main", "index": 0}]]},
-    "Save Action Jobs": {"main": [[{"node": "Mark Read", "type": "main", "index": 0}]]},
+    "Save New Jobs": {"main": [[{"node": "Route Account", "type": "main", "index": 0}]]},
+    "Save Applied Jobs": {"main": [[{"node": "Route Account", "type": "main", "index": 0}]]},
+    "Save Rejected Jobs": {"main": [[{"node": "Route Account", "type": "main", "index": 0}]]},
+    "Save Action Jobs": {"main": [[{"node": "Route Account", "type": "main", "index": 0}]]},
     "Format Other": {"main": [[{"node": "Save Other", "type": "main", "index": 0}]]},
-    "Save Other": {"main": [[{"node": "Mark Read", "type": "main", "index": 0}]]}
+    "Save Other": {"main": [[{"node": "Route Account", "type": "main", "index": 0}]]},
+    "Route Account": {"main": [[{"node": "Mark Read (Account 1)", "type": "main", "index": 0}], [{"node": "Mark Read (Account 2)", "type": "main", "index": 0}]]}
   },
   "settings": {"executionOrder": "v1"}
 }
